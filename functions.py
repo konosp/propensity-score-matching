@@ -23,3 +23,10 @@ def hasCabin(x):
         return 1
     else:
         return 0
+    
+def cohenD (tmp, metricName):
+    treated_metric = tmp[tmp.treatment == 1][metricName]
+    untreated_metric = tmp[tmp.treatment == 0][metricName]
+    
+    d = ( treated_metric.mean() - untreated_metric.mean() ) / math.sqrt(((treated_metric.count()-1)*treated_metric.std()**2 + (untreated_metric.count()-1)*untreated_metric.std()**2) / (treated_metric.count() + untreated_metric.count()-2))
+    return d
