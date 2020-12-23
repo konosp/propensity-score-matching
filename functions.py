@@ -20,9 +20,9 @@ def logit(p):
 
 def hasCabin(x):
     if pd.isna(x):
-        return 1
-    else:
         return 0
+    else:
+        return 1
     
 def cohenD (tmp, metricName):
     treated_metric = tmp[tmp.treatment == 1][metricName]
