@@ -52,18 +52,7 @@ plt.style.use('classic')
 
 import seaborn as sns
 sns.set(rc={'figure.figsize':(16,10)})
-```
 
-    
-    Bad key "text.kerning_factor" on line 4 in
-    /Users/konos/opt/anaconda3/lib/python3.7/site-packages/matplotlib/mpl-data/stylelib/_classic_test_patch.mplstyle.
-    You probably need to get an updated matplotlibrc file from
-    https://github.com/matplotlib/matplotlib/blob/v3.1.3/matplotlibrc.template
-    or from the matplotlib source distribution
-
-
-
-```python
 df = pd.read_csv('train.csv')
 # Elements are dropped for simplicity.
 df = df[~df.Age.isna()]
@@ -94,19 +83,6 @@ pd.pivot_table(df[['treatment','Pclass','PassengerId']], \
 
 
 <div>
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
-
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
 <table border="1" class="dataframe">
   <thead>
     <tr style="text-align: right;">
@@ -171,21 +147,13 @@ pipe = Pipeline([
 
 pipe.fit(X_encoded, T)
 ```
-
-
-
-
-    Pipeline(steps=[('scaler', StandardScaler()),
+Pipeline(steps=[('scaler', StandardScaler()),
                     ('logistic_classifier', LogisticRegression())])
-
-
-
 
 ```python
 predictions = pipe.predict_proba(X_encoded)
 predictions_binary = pipe.predict(X_encoded)
 ```
-
 
 ```python
 print('Accuracy: {:.4f}\n'.format(metrics.accuracy_score(T, predictions_binary)))
@@ -204,11 +172,9 @@ print('F1 score is: {:.4f}'.format(metrics.f1_score(T, predictions_binary)))
 
 Convert propability to logit (based on the suggestion at https://youtu.be/gaUgW7NWai8?t=981)
 
-
 ```python
 predictions_logit = np.array([logit(xi) for xi in predictions[:,1]])
 ```
-
 
 ```python
 # Density distribution of propensity score (logic) broken down by treatment status
@@ -221,7 +187,6 @@ ax[1].axvline(-0.4, ls='--')
 ax[1].set_title('Logit of Propensity Score')
 plt.show()
 ```
-
 
 ![png](images/output_19_0.png)
 
@@ -246,27 +211,9 @@ X_encoded.loc[:,'outcome'] = y.Survived
 X_encoded.loc[:,'treatment'] = df_data.treatment
 ```
 
-    /Users/konos/opt/anaconda3/lib/python3.7/site-packages/pandas/core/indexing.py:845: SettingWithCopyWarning: 
-    A value is trying to be set on a copy of a slice from a DataFrame.
-    Try using .loc[row_indexer,col_indexer] = value instead
-    
-    See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
-      self.obj[key] = _infer_fill_value(value)
-    /Users/konos/opt/anaconda3/lib/python3.7/site-packages/pandas/core/indexing.py:966: SettingWithCopyWarning: 
-    A value is trying to be set on a copy of a slice from a DataFrame.
-    Try using .loc[row_indexer,col_indexer] = value instead
-    
-    See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
-      self.obj[item] = s
-
-
-
 ```python
 X_encoded.loc[0]
 ```
-
-
-
 
     Age                       22.000000
     SibSp                      1.000000
@@ -316,19 +263,10 @@ df_data = X_encoded.loc[common_support].reset_index().rename(columns = {'index':
 
 knn = NearestNeighbors(n_neighbors=10 , p = 2, radius=caliper)
 knn.fit(df_data[['propensity_score_logit']].to_numpy())
-```
-
-    
+```  
     Caliper (radius) is: 0.0889
-    
-
-
-
-
-
+  
     NearestNeighbors(n_neighbors=10, radius=0.08890268148266278)
-
-
 
 For each data point (based on the logit propensity score) obtain (at most) 10 nearest matches. This is regardless of their treatment status.
 
@@ -411,23 +349,7 @@ matched_data = df_data.loc[all_matched_elements]
 matched_data[['propensity_score','propensity_score_logit','outcome','treatment','matched_element']].head(5)
 ```
 
-
-
-
 <div>
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
-
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
 <table border="1" class="dataframe">
   <thead>
     <tr style="text-align: right;">
@@ -492,15 +414,9 @@ Items that have matched_element = NaN, do not hold the matched-element informati
 ```python
 matched_data.treatment.value_counts()
 ```
-
-
-
-
     0    51
     1    50
     Name: treatment, dtype: int64
-
-
 
 In total 50 treated elements (i.e. hasCabin = True) have been matched with 51 untreated elements. A treated element has been matched twice.
 
@@ -607,12 +523,7 @@ print('Dimensions overview before matching')
 sns.pairplot(data = matched_data[cols], hue = 'treatment')
 print('Dimensions overview after matching')
 ```
-
-    /Users/konos/opt/anaconda3/lib/python3.7/site-packages/seaborn/distributions.py:305: UserWarning: Dataset has 0 variance; skipping density estimate.
-      warnings.warn(msg, UserWarning)
-
-
-    Dimensions overview after matching
+     Dimensions overview after matching
 
 
 
@@ -674,19 +585,6 @@ combined_elements[['treatment','outcome','outcome_counterfactual']].groupby(by =
 
 
 <div>
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
-
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
 <table border="1" class="dataframe">
   <thead>
     <tr style="text-align: right;">
