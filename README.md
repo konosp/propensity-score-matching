@@ -1,15 +1,15 @@
 # Introduction
-This notebook is used as a demonstration/introduction to propensity score matching. It uses the Kaggle Titanic dataset (https://www.kaggle.com/c/titanic). The main goal is to estimate the effect of cabin (i.e. treatment) on the final survival of passengers. 
+This notebook is used as a demonstration/introduction to propensity score matching. It uses the Kaggle Titanic dataset (https://www.kaggle.com/c/titanic). The main goal is to estimate the effect of a treatment (i.e. the passenger has a cabin) on the final survival of passengers. 
 
-The dataset helps illustrate the point that we cannot perform a RCT (randomised controlled testing) on the subjects. 
-Also the results demonstrate a proof of concept but if more observations were available, the results would be more robust.
+The dataset helps illustrate how we could potentially assess the impact of a treatment in cases where we cannot perform a RCT (randomised controlled testing) on the subjects.
 
 1. <a href='#Key-points'>Key points</a>
-2. <a href='#Data-Preparation'>Data Preparation</a>
-2. <a href='#Matching-Implementation'>Matching implementation</a>
-3. <a href='#Matching-Review'>Matching Review</a>
-4. <a href='#Average-Treatement-effect'>Average Treatement Effect</a>
-1. <a href='#References'>References</a>
+2. <a href='#Approach'>Approach</a>
+3. <a href='#Data-Preparation'>Data Preparation</a>
+4. <a href='#Matching-Implementation'>Matching implementation</a>
+5. <a href='#Matching-Review'>Matching Review</a>
+6. <a href='#Average-Treatement-effect'>Average Treatement Effect</a>
+7. <a href='#References'>References</a>
 
 # Key points
 In order to proceed to PSM (propensity score matching), the following key points are considered:
@@ -17,14 +17,23 @@ In order to proceed to PSM (propensity score matching), the following key points
     - X are the underlying characteristics/features available.
     - T is the treatment; can be either 1 or 0. In this notebook the presence of a cabin is considered as T=1 (i.e. the passenger got treated).
     - Y is the outcome variable i.e. survived or not.
-- Propensity score is the estimated probability that a subject/passenger is treated given certain observable characteristics X. In probability notation this is P(T=1|X). Propensity Score is used to "minimize" the dimensions. This solves the curse of dimensionality but on the other hand there is loss of information.
+- Propensity score is the estimated probability that a subject/passenger is treated given certain observable characteristics X. In probability notation this is P(T=1|X). Propensity Score is used to "minimize/compress" the dimensions. This solves the curse of dimensionality but on the other hand there is loss of information.
 - The propensity score is calculated (usually) by logistic regression having T (treatment) as the outcome variable.
 - There is a cost in not doing a proper RCT (randomised controlled testing). Treatment groups might not fully overlap (common support) or not all of characteristics X (i.e. age, fare etc.) might be equally distributed within the treatment groups.
 
 Key assumptions & conditions:
-- Identification condition: observations with similar characteristics X present in both treatment and control groups. This requires 0 < P(T=1|X) < 1
+- Identification condition: observations with similar characteristics X are present in both treatment and control groups. 
 - Conditional independence assumption: There are no unobserved differences correlated to potential outcomes once we have controlled for certain observable characteristics
 - Unconfoundedness assumption: Selection on treatment (or not) should be solely based on observable characteristics (i.e. X). Assuming there is no selection bias from unobserved characteristics. It is not possible to prove the validity of this unconfoundedness assumption.
+
+Misc:
+- There are studies suggesting that Propensity Score is not the optimum method to perform matching. #TODO: Add reference
+
+# Approach
+1. Estimate the propensity score. This is the propability (logistic regression) that an observation is treated or not. Then convert it to its logit value.
+2. Perform matching. For each treated sample, identify an untreated sample with similar logit propensity score. The matching is 1-to-1 with replacement. In cases where we do not have enough untreated elements, then the same one can be re-used. The matching takes place using the treated elements as source.
+3. Once matching is performed, we review the balance of the X variables to assess their balance.
+4. Estimate the impact of treatment.
 
 # Data Preparation
 
@@ -36,6 +45,13 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import NearestNeighbors
 from sklearn import metrics
+```
+
+
+```python
+# Enabled to remove warnings for demo purposes.
+import warnings
+warnings.filterwarnings('ignore')
 ```
 
 
@@ -52,16 +68,28 @@ plt.style.use('classic')
 
 import seaborn as sns
 sns.set(rc={'figure.figsize':(16,10)})
+```
 
+    
+    Bad key "text.kerning_factor" on line 4 in
+    /Users/konos/opt/anaconda3/lib/python3.7/site-packages/matplotlib/mpl-data/stylelib/_classic_test_patch.mplstyle.
+    You probably need to get an updated matplotlibrc file from
+    https://github.com/matplotlib/matplotlib/blob/v3.1.3/matplotlibrc.template
+    or from the matplotlib source distribution
+
+
+
+```python
 df = pd.read_csv('train.csv')
 # Elements are dropped for simplicity.
 df = df[~df.Age.isna()]
 df = df[~df.Embarked.isna()]
+df = df.reset_index()
 y = df[['Survived']]
 df = df.drop(columns = ['Survived'])
 ```
 
-Create an artificial treatment effect. It is based on the condition that a passenger has a cabin (1) or not (0).
+Create an artificial treatment effect. It is based on the condition that a passenger has a cabin (1) or not (0). The 'hasCabin' function is imported from the functions.py file.
 
 
 ```python
@@ -83,6 +111,19 @@ pd.pivot_table(df[['treatment','Pclass','PassengerId']], \
 
 
 <div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
 <table border="1" class="dataframe">
   <thead>
     <tr style="text-align: right;">
@@ -147,13 +188,21 @@ pipe = Pipeline([
 
 pipe.fit(X_encoded, T)
 ```
-Pipeline(steps=[('scaler', StandardScaler()),
+
+
+
+
+    Pipeline(steps=[('scaler', StandardScaler()),
                     ('logistic_classifier', LogisticRegression())])
+
+
+
 
 ```python
 predictions = pipe.predict_proba(X_encoded)
 predictions_binary = pipe.predict(X_encoded)
 ```
+
 
 ```python
 print('Accuracy: {:.4f}\n'.format(metrics.accuracy_score(T, predictions_binary)))
@@ -172,9 +221,11 @@ print('F1 score is: {:.4f}'.format(metrics.f1_score(T, predictions_binary)))
 
 Convert propability to logit (based on the suggestion at https://youtu.be/gaUgW7NWai8?t=981)
 
+
 ```python
 predictions_logit = np.array([logit(xi) for xi in predictions[:,1]])
 ```
+
 
 ```python
 # Density distribution of propensity score (logic) broken down by treatment status
@@ -188,10 +239,13 @@ ax[1].set_title('Logit of Propensity Score')
 plt.show()
 ```
 
-![png](images/output_19_0.png)
+
+![png](output_21_0.png)
 
 
-The graph on the right (logit_propensity_score) demonstrates the density for each treatment status. There is overlap accross the range of values (-6,5). However on the left of "-0.4" there are a lot more 0's than 1's. On the right side of "-0.4", the opposite is true (a lot more 1's than 0's). This will affect later how we will perform the matching so we can have balanced groups.
+The graph on the right (logit_propensity_score) demonstrates the density for each treatment status. There is overlap accross the range of values (-6,5). However on the left of "-0.4" there are a lot more 0's than 1's. On the right side of "-0.4", the opposite is true (a lot more 1's than 0's). 
+
+This will affect later how we will perform the matching so we can have balanced groups. In practise, this means that for values X > -0.4, there are less untreated samples than treated. This will lead to untreated samples being used for more than one treated.
 
 
 ```python
@@ -211,44 +265,6 @@ X_encoded.loc[:,'outcome'] = y.Survived
 X_encoded.loc[:,'treatment'] = df_data.treatment
 ```
 
-```python
-X_encoded.loc[0]
-```
-
-    Age                       22.000000
-    SibSp                      1.000000
-    Parch                      0.000000
-    Fare                       7.250000
-    sex_female                 0.000000
-    sex_male                   1.000000
-    embarked_C                 0.000000
-    embarked_Q                 0.000000
-    embarked_S                 1.000000
-    class_1                    0.000000
-    class_2                    0.000000
-    class_3                    1.000000
-    propensity_score           0.021156
-    propensity_score_logit    -3.834463
-    outcome                    0.000000
-    treatment                  0.000000
-    Name: 0, dtype: float64
-
-
-
-
-```python
-df_data.treatment.value_counts()
-```
-
-
-
-
-    0    529
-    1    183
-    Name: treatment, dtype: int64
-
-
-
 ## Matching Implementation
 Use Nearerst Neighbors to identify matching candidates. Then perform 1-to-1 matching by isolating/identifying groups of (T=1,T=0).
 - Caliper: 25% of standart deviation of logit(propensity score)
@@ -259,14 +275,23 @@ caliper = np.std(df_data.propensity_score) * 0.25
 
 print('\nCaliper (radius) is: {:.4f}\n'.format(caliper))
 
-df_data = X_encoded.loc[common_support].reset_index().rename(columns = {'index':'old_index'})
+df_data = X_encoded
 
 knn = NearestNeighbors(n_neighbors=10 , p = 2, radius=caliper)
 knn.fit(df_data[['propensity_score_logit']].to_numpy())
-```  
+```
+
+    
     Caliper (radius) is: 0.0889
-  
+    
+
+
+
+
+
     NearestNeighbors(n_neighbors=10, radius=0.08890268148266278)
+
+
 
 For each data point (based on the logit propensity score) obtain (at most) 10 nearest matches. This is regardless of their treatment status.
 
@@ -310,50 +335,62 @@ print('...')
     ...
 
 
-The overall space is split in two cases:
-1. propensity_score_logit is greater than 0.4 - Less items with T=1 are present than T=0. This is used as the starting pool and select the closest item with T=0.
-2. propensity_score_logit is less than 0.4 - Less items with T=0 are present than T=1. This is used as the starting pool and select the closest item with T=1.
-
 
 ```python
-def perfom_matching(row, indexes, df_data):
+def perfom_matching_v2(row, indexes, df_data):
     current_index = int(row['index']) # Obtain value from index-named column, not the actual DF index.
     prop_score_logit = row['propensity_score_logit']
     for idx in indexes[current_index,:]:
-        if (prop_score_logit < -0.4) and (current_index != idx) and (row.treatment == 1) and (df_data.loc[idx].treatment == 0):
+        if (current_index != idx) and (row.treatment == 1) and (df_data.loc[idx].treatment == 0):
             return int(idx)
-        elif (prop_score_logit > -0.4) and (current_index != idx) and (row.treatment == 0) and (df_data.loc[idx].treatment == 1):
-            return int(idx)
-        
-df_data['matched_element'] = df_data.reset_index().apply(perfom_matching, axis = 1, args = (indexes, df_data))
+         
+df_data['matched_element'] = df_data.reset_index().apply(perfom_matching_v2, axis = 1, args = (indexes, df_data))
 ```
 
 
 ```python
 treated_with_match = ~df_data.matched_element.isna()
-untreated_with_match = df_data.reset_index()['index'].isin(df_data.matched_element)
 ```
 
 
 ```python
-all_matched_elements = pd.DataFrame(data = {'a' : treated_with_match, 'b' :untreated_with_match}).any(axis = 1)
+treated_matched_data = df_data[treated_with_match][df_data.columns]
+treated_matched_data.head(3)
 ```
 
 
-```python
-matched_data = df_data.loc[all_matched_elements]
-```
 
-
-```python
-matched_data[['propensity_score','propensity_score_logit','outcome','treatment','matched_element']].head(5)
-```
 
 <div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
 <table border="1" class="dataframe">
   <thead>
     <tr style="text-align: right;">
       <th></th>
+      <th>Age</th>
+      <th>SibSp</th>
+      <th>Parch</th>
+      <th>Fare</th>
+      <th>sex_female</th>
+      <th>sex_male</th>
+      <th>embarked_C</th>
+      <th>embarked_Q</th>
+      <th>embarked_S</th>
+      <th>class_1</th>
+      <th>class_2</th>
+      <th>class_3</th>
       <th>propensity_score</th>
       <th>propensity_score_logit</th>
       <th>outcome</th>
@@ -363,44 +400,64 @@ matched_data[['propensity_score','propensity_score_logit','outcome','treatment',
   </thead>
   <tbody>
     <tr>
+      <th>1</th>
+      <td>38.0</td>
+      <td>1</td>
+      <td>0</td>
+      <td>71.2833</td>
+      <td>1</td>
+      <td>0</td>
+      <td>1</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0.866755</td>
+      <td>1.872566</td>
+      <td>1</td>
+      <td>1</td>
+      <td>62.0</td>
+    </tr>
+    <tr>
       <th>3</th>
+      <td>35.0</td>
+      <td>1</td>
+      <td>0</td>
+      <td>53.1000</td>
+      <td>1</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1</td>
+      <td>1</td>
+      <td>0</td>
+      <td>0</td>
       <td>0.895107</td>
       <td>2.144005</td>
       <td>1</td>
       <td>1</td>
-      <td>NaN</td>
+      <td>306.0</td>
     </tr>
     <tr>
       <th>5</th>
+      <td>54.0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>51.8625</td>
+      <td>0</td>
+      <td>1</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1</td>
+      <td>1</td>
+      <td>0</td>
+      <td>0</td>
       <td>0.805110</td>
       <td>1.418544</td>
       <td>0</td>
       <td>1</td>
-      <td>NaN</td>
-    </tr>
-    <tr>
-      <th>9</th>
-      <td>0.063216</td>
-      <td>-2.695902</td>
-      <td>1</td>
-      <td>1</td>
-      <td>686.0</td>
-    </tr>
-    <tr>
-      <th>18</th>
-      <td>0.059719</td>
-      <td>-2.756534</td>
-      <td>1</td>
-      <td>1</td>
-      <td>636.0</td>
-    </tr>
-    <tr>
-      <th>22</th>
-      <td>0.102161</td>
-      <td>-2.173435</td>
-      <td>1</td>
-      <td>0</td>
-      <td>NaN</td>
+      <td>372.0</td>
     </tr>
   </tbody>
 </table>
@@ -408,17 +465,187 @@ matched_data[['propensity_score','propensity_score_logit','outcome','treatment',
 
 
 
-Items that have matched_element = NaN, do not hold the matched-element information. This is held at their counterpart elements.
+
+```python
+def obtain_match_details(row, all_data, attribute):
+    return all_data.loc[row.matched_element][attribute]
+
+untreated_matched_data = pd.DataFrame(data = treated_matched_data.matched_element)
+
+attributes = ['Age', 'SibSp', 'Parch', 'Fare', 'sex_female', 'sex_male', 'embarked_C',
+       'embarked_Q', 'embarked_S', 'class_1', 'class_2', 'class_3',
+       'propensity_score', 'propensity_score_logit', 'outcome', 'treatment']
+for attr in attributes:
+    untreated_matched_data[attr] = untreated_matched_data.apply(obtain_match_details, axis = 1, all_data = df_data, attribute = attr)
+    
+untreated_matched_data = untreated_matched_data.set_index('matched_element')
+untreated_matched_data.head(3)
+```
+
+
+
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Age</th>
+      <th>SibSp</th>
+      <th>Parch</th>
+      <th>Fare</th>
+      <th>sex_female</th>
+      <th>sex_male</th>
+      <th>embarked_C</th>
+      <th>embarked_Q</th>
+      <th>embarked_S</th>
+      <th>class_1</th>
+      <th>class_2</th>
+      <th>class_3</th>
+      <th>propensity_score</th>
+      <th>propensity_score_logit</th>
+      <th>outcome</th>
+      <th>treatment</th>
+    </tr>
+    <tr>
+      <th>matched_element</th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>62.0</th>
+      <td>28.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>47.10</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>1.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.866278</td>
+      <td>1.868444</td>
+      <td>0.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>306.0</th>
+      <td>35.0</td>
+      <td>1.0</td>
+      <td>0.0</td>
+      <td>52.00</td>
+      <td>1.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>1.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.895251</td>
+      <td>2.145533</td>
+      <td>1.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <th>372.0</th>
+      <td>56.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>26.55</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>1.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.805278</td>
+      <td>1.419613</td>
+      <td>0.0</td>
+      <td>0.0</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
 
 
 ```python
-matched_data.treatment.value_counts()
+untreated_matched_data.shape
 ```
-    0    51
-    1    50
+
+
+
+
+    (143, 16)
+
+
+
+
+```python
+treated_matched_data.shape
+```
+
+
+
+
+    (143, 17)
+
+
+
+
+```python
+all_mached_data = pd.concat([treated_matched_data, untreated_matched_data])
+```
+
+
+```python
+all_mached_data.treatment.value_counts()
+```
+
+
+
+
+    0.0    143
+    1.0    143
     Name: treatment, dtype: int64
 
-In total 50 treated elements (i.e. hasCabin = True) have been matched with 51 untreated elements. A treated element has been matched twice.
+
 
 # Matching Review
 
@@ -427,44 +654,43 @@ In total 50 treated elements (i.e. hasCabin = True) have been matched with 51 un
 fig, ax = plt.subplots(1,2)
 fig.suptitle('Comparison of propensity scores split by treatment status.')
 sns.kdeplot(data = df_data, x = 'propensity_score_logit', hue = 'treatment', ax = ax[0]).set(title='Distribution before matching')
-sns.kdeplot(data = matched_data, x = 'propensity_score_logit', hue = 'treatment',  ax = ax[1]).set(title='Distribution after matching')
+sns.kdeplot(data = all_mached_data, x = 'propensity_score_logit', hue = 'treatment',  ax = ax[1]).set(title='Distribution after matching')
 plt.show()
 ```
 
 
-![png](images/output_41_0.png)
+![png](output_40_0.png)
 
 
 
 ```python
-def obtain_matched_pairs(row):
-    x1 = row.Age
-    y1 = row.Fare
-   
-    x2 = matched_data.loc[row.matched_element].Age
-    y2 = matched_data.loc[row.matched_element].Fare
-    return (x1, y1, x2, y2)
-    
-points = matched_data[~matched_data.matched_element.isna()].apply(obtain_matched_pairs, axis = 1)
+points_df = pd.merge(treated_matched_data[['Age','Fare','matched_element']], df_data[['Age','Fare']], how = 'right',  left_on = 'matched_element', right_index=True)
 ```
 
 
 ```python
 markers = {0: 'o', 1: '^'}
-sns.scatterplot(data = matched_data, x = 'Age', y = 'Fare', style = 'treatment', s = 100, markers = markers, hue = 'propensity_score_logit').\
+sns.scatterplot(data = all_mached_data, x = 'Age', y = 'Fare', style = 'treatment', s = 100, markers = markers, hue = 'propensity_score_logit').\
     set(xlim=(0, 75), ylim=(-10, 300))
 plt.title('Matched pairs demonstration across Age and Fare')
-for (x1, y1, x2, y2) in points:
-     plt.plot([x1, x2], [y1, y2], linewidth=0.3, color = 'b', linestyle='dashed' )
+
+def add_lines(row):
+    x1 = row.Age_x
+    y1 = row.Fare_x
+    x2 = row.Age_y
+    y2 = row.Fare_y
+    plt.plot([x1, x2], [y1, y2], linewidth=0.3, color = 'b', linestyle='dashed' )
+
+t = points_df.apply(add_lines, axis = 1)
 ```
 
 
-![png](images/output_43_0.png)
+![png](output_42_0.png)
 
 
 The above chart demonstrates the result of the matching. Let's unpack the information it contains.
-- Circles demonstrate untreated samples and Triangles treated samples.
-- A circle is always matched with a triangle.
+- Triangle depict treated samples and Circles untreated samples.
+- A triangle is always matched with one (or more) a circles.
 - Matched elements have similar propensity score (i.e. same color of shape).
 - Matched elements might have big difference in some of their dimensions (i.e. Age gap) but their propensity score is always very close. This also demonstrates the fact that propensity scores lead to loss of information (due to the compression of multiple dimensions to a single number). 
 
@@ -475,7 +701,7 @@ cols = ['Age','SibSp','Parch','Fare','sex_female','sex_male','embarked_C','embar
 # cols = ['Age','SibSp','Parch','Fare','sex_female','sex_male','embarked_C','embarked_Q','embarked_S']
 for cl in cols:
     data.append([cl,'before', cohenD(df_data,cl)])
-    data.append([cl,'after', cohenD(matched_data,cl)])
+    data.append([cl,'after', cohenD(all_mached_data,cl)])
 ```
 
 
@@ -497,7 +723,7 @@ sns.barplot(data = res, y = 'variable', x = 'effect_size', hue = 'matching', ori
 
 
 
-![png](images/output_47_1.png)
+![png](output_46_1.png)
 
 
 
@@ -515,82 +741,60 @@ print('Dimensions overview before matching')
 
 
 
-![png](images/output_49_1.png)
+![png](output_48_1.png)
 
 
 
 ```python
-sns.pairplot(data = matched_data[cols], hue = 'treatment')
+sns.pairplot(data = all_mached_data[cols], hue = 'treatment')
 print('Dimensions overview after matching')
 ```
-     Dimensions overview after matching
+
+    Dimensions overview after matching
 
 
 
-![png](images/output_50_2.png)
+![png](output_49_1.png)
 
 
 # Average Treatement effect
 
 
 ```python
-elements_a = matched_data[~matched_data.matched_element.isna()][['outcome','treatment','matched_element']]
-elements_b = matched_data[matched_data.matched_element.isna()][['outcome','treatment']]
+all_mached_data[['outcome','treatment']].groupby(by = ['treatment']).aggregate([np.mean, np.var])
 ```
-
-
-```python
-combined_elements = pd.merge(left= elements_a, right= elements_b, \
-                             left_on='matched_element', suffixes=('','_counterfactual'),  right_index=True)
-```
-
-
-```python
-combined_elements['effect'] = 0
-```
-
-
-```python
-# How to calculate treatement effect: https://youtu.be/CEikQRj5n_A?t=1044
-def calc_effect(row):
-    if (row.treatment == 1):
-        return row.outcome - row.outcome_counterfactual
-    elif (row.treatment == 0):
-        return row.outcome_counterfactual - row.outcome
-    
-combined_elements['effect'] = combined_elements.apply(calc_effect, axis = 1)
-```
-
-
-```python
-print('Average Treatement Effect (ATE): {:.4f}'.format(combined_elements['effect'].mean()))
-print('Average Treatement Effect of Treated (ATT): {:.4f}'.format(combined_elements[combined_elements.treatment == 1]['effect'].mean()))
-```
-
-    Average Treatement Effect (ATE): 0.1569
-    Average Treatement Effect of Treated (ATT): 0.3200
-
-
-
-```python
-print('Mean survival by treatment status:\n')
-combined_elements[['treatment','outcome','outcome_counterfactual']].groupby(by = ['treatment']).aggregate(np.mean)
-```
-
-    Mean survival by treatment status:
-    
-
 
 
 
 
 <div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead tr th {
+        text-align: left;
+    }
+
+    .dataframe thead tr:last-of-type th {
+        text-align: right;
+    }
+</style>
 <table border="1" class="dataframe">
   <thead>
-    <tr style="text-align: right;">
+    <tr>
       <th></th>
-      <th>outcome</th>
-      <th>outcome_counterfactual</th>
+      <th colspan="2" halign="left">outcome</th>
+    </tr>
+    <tr>
+      <th></th>
+      <th>mean</th>
+      <th>var</th>
     </tr>
     <tr>
       <th>treatment</th>
@@ -600,14 +804,14 @@ combined_elements[['treatment','outcome','outcome_counterfactual']].groupby(by =
   </thead>
   <tbody>
     <tr>
-      <th>0</th>
-      <td>0.538462</td>
-      <td>0.538462</td>
+      <th>0.0</th>
+      <td>0.510490</td>
+      <td>0.251650</td>
     </tr>
     <tr>
-      <th>1</th>
-      <td>0.680000</td>
-      <td>0.360000</td>
+      <th>1.0</th>
+      <td>0.622378</td>
+      <td>0.236679</td>
     </tr>
   </tbody>
 </table>
@@ -617,7 +821,9 @@ combined_elements[['treatment','outcome','outcome_counterfactual']].groupby(by =
 
 
 ```python
-stats_results = stats.ttest_ind(combined_elements[combined_elements.treatment == 1]['effect'], combined_elements[combined_elements.treatment == 0]['effect'])
+treated_outcome = treated_matched_data.outcome
+untreated_outcome = untreated_matched_data.outcome
+stats_results = stats.ttest_ind(treated_outcome, untreated_outcome)
 ```
 
 
@@ -625,7 +831,7 @@ stats_results = stats.ttest_ind(combined_elements[combined_elements.treatment ==
 print('p-value: {:.4f}'.format(stats_results.pvalue))
 ```
 
-    p-value: 0.0758
+    p-value: 0.0565
 
 
 # References
