@@ -240,7 +240,7 @@ plt.show()
 ```
 
 
-![png](output_21_0.png)
+![png](images/output_21_0.png)
 
 
 The graph on the right (logit_propensity_score) demonstrates the density for each treatment status. There is overlap accross the range of values (-6,5). However on the left of "-0.4" there are a lot more 0's than 1's. On the right side of "-0.4", the opposite is true (a lot more 1's than 0's). 
@@ -362,19 +362,6 @@ treated_matched_data.head(3)
 
 
 <div>
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
-
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
 <table border="1" class="dataframe">
   <thead>
     <tr style="text-align: right;">
@@ -486,19 +473,6 @@ untreated_matched_data.head(3)
 
 
 <div>
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
-
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
 <table border="1" class="dataframe">
   <thead>
     <tr style="text-align: right;">
@@ -659,7 +633,7 @@ plt.show()
 ```
 
 
-![png](output_40_0.png)
+![png](images/output_40_0.png)
 
 
 
@@ -685,7 +659,7 @@ t = points_df.apply(add_lines, axis = 1)
 ```
 
 
-![png](output_42_0.png)
+![png](images/output_42_0.png)
 
 
 The above chart demonstrates the result of the matching. Let's unpack the information it contains.
@@ -723,7 +697,7 @@ sns.barplot(data = res, y = 'variable', x = 'effect_size', hue = 'matching', ori
 
 
 
-![png](output_46_1.png)
+![png](images/output_46_1.png)
 
 
 
@@ -741,7 +715,7 @@ print('Dimensions overview before matching')
 
 
 
-![png](output_48_1.png)
+![png](images/output_48_1.png)
 
 
 
@@ -754,7 +728,7 @@ print('Dimensions overview after matching')
 
 
 
-![png](output_49_1.png)
+![png](images/output_49_1.png)
 
 
 # Average Treatement effect
@@ -768,23 +742,6 @@ all_mached_data[['outcome','treatment']].groupby(by = ['treatment']).aggregate([
 
 
 <div>
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
-
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead tr th {
-        text-align: left;
-    }
-
-    .dataframe thead tr:last-of-type th {
-        text-align: right;
-    }
-</style>
 <table border="1" class="dataframe">
   <thead>
     <tr>
