@@ -107,23 +107,7 @@ pd.pivot_table(df[['treatment','Pclass','PassengerId']], \
                aggfunc= np.count_nonzero)
 ```
 
-
-
-
 <div>
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
-
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
 <table border="1" class="dataframe">
   <thead>
     <tr style="text-align: right;">
@@ -188,16 +172,8 @@ pipe = Pipeline([
 
 pipe.fit(X_encoded, T)
 ```
-
-
-
-
     Pipeline(steps=[('scaler', StandardScaler()),
                     ('logistic_classifier', LogisticRegression())])
-
-
-
-
 ```python
 predictions = pipe.predict_proba(X_encoded)
 predictions_binary = pipe.predict(X_encoded)
@@ -280,21 +256,11 @@ df_data = X_encoded
 knn = NearestNeighbors(n_neighbors=10 , p = 2, radius=caliper)
 knn.fit(df_data[['propensity_score_logit']].to_numpy())
 ```
-
-    
     Caliper (radius) is: 0.0889
-    
-
-
-
-
 
     NearestNeighbors(n_neighbors=10, radius=0.08890268148266278)
 
-
-
 For each data point (based on the logit propensity score) obtain (at most) 10 nearest matches. This is regardless of their treatment status.
-
 
 ```python
 # Common support distances and indexes
